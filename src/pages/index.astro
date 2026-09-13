@@ -1,11 +1,268 @@
 ---
-import Welcome from '../components/Welcome.astro';
-import Layout from '../layouts/Layout.astro';
+// src/pages/index.astro
+import { getCollection } from 'astro:content';
+import { allCategories, getCategory } from '../config/categories';
+import SketchFlow from '../components/SketchFlow.jsx';
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+const heroStages = [
+  { id: 'kubectl', label: 'kubectl apply' },
+  { id: 'api', label: 'API server' },
+  { id: 'etcd', label: 'etcd' },
+  { id: 'sched', label: 'Scheduler' },
+  { id: 'kubelet', label: 'Kubelet' },
+  { id: 'running', label: 'Pod running' },
+];
+
+const allPosts = await getCollection('posts');
+const sorted = allPosts.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+function postUrl(post) {
+  return `/${post.id}`;
+}
+
+const dateFmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 ---
 
-<Layout>
-	<Welcome />
-</Layout>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>mudit000 — systems, drawn out</title>
+  <meta name="description" content="Kubernetes, cloud, and AI concepts explained end-to-end through animated, hand-drawn diagrams." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #F4F5F2;
+      --grid-line: #E4E6E0;
+      --ink: #23262B;
+      --ink-muted: #5B6169;
+      --border: #23262B;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / 100% 40px,
+        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / 40px 100%,
+        var(--paper);
+      color: var(--ink);
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+    nav.top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 0 20px;
+    }
+    .wordmark {
+      font-family: 'Kalam', cursive;
+      font-weight: 700;
+      font-size: 22px;
+      color: var(--ink);
+      text-decoration: none;
+    }
+    .cat-tabs { display: flex; gap: 22px; list-style: none; margin: 0; padding: 0; }
+    .cat-tabs a {
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 15px;
+      padding-bottom: 3px;
+      border-bottom: 2px solid transparent;
+    }
+    .cat-tabs a:hover { text-decoration: underline wavy; text-underline-offset: 4px; }
+
+    header.hero {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 48px;
+      align-items: center;
+      padding: 48px 0 64px;
+    }
+    header.hero h1 {
+      font-family: 'Kalam', cursive;
+      font-weight: 700;
+      font-size: 52px;
+      line-height: 1.15;
+      margin: 0 0 20px;
+      max-width: 11ch;
+    }
+    header.hero p {
+      font-size: 18px;
+      line-height: 1.6;
+      color: var(--ink-muted);
+      max-width: 42ch;
+      margin: 0;
+    }
+    .hero-demo {
+      display: flex;
+      justify-content: center;
+    }
+
+    .rule {
+      border: none;
+      height: 2px;
+      background: var(--ink);
+      opacity: 0.12;
+      margin: 0 0 48px;
+    }
+
+    section.posts h2 {
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      font-size: 22px;
+      margin: 0 0 24px;
+    }
+    .post-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 24px;
+      margin-bottom: 80px;
+    }
+    .post-card {
+      position: relative;
+      padding: 22px 20px;
+      min-height: 150px;
+      display: flex;
+      flex-direction: column;
+      text-decoration: none;
+      color: inherit;
+    }
+    .post-card svg.frame {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .post-card .badge {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 3px;
+      margin-bottom: 12px;
+      align-self: flex-start;
+    }
+    .post-card h3 {
+      font-family: 'Inter', sans-serif;
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0 0 8px;
+      color: var(--ink);
+    }
+    .post-card p {
+      font-size: 14px;
+      color: var(--ink-muted);
+      line-height: 1.5;
+      margin: 0 0 12px;
+      flex-grow: 1;
+    }
+    .post-card .meta {
+      font-size: 12px;
+      color: var(--ink-muted);
+      display: block;
+    }
+    .post-card .meta.difficulty {
+      margin-top: 2px;
+      text-transform: capitalize;
+    }
+    .post-card.empty {
+      align-items: flex-start;
+      justify-content: center;
+      color: var(--ink-muted);
+    }
+    .post-card.empty p {
+      flex-grow: 0;
+      font-size: 14px;
+    }
+
+    @media (max-width: 760px) {
+      header.hero { grid-template-columns: 1fr; }
+      header.hero h1 { font-size: 38px; max-width: none; }
+      .cat-tabs { gap: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute">
+    <defs>
+      <filter id="sketchy" x="-10%" y="-10%" width="120%" height="120%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="7" result="noise" />
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.5" />
+      </filter>
+    </defs>
+  </svg>
+
+  <div class="wrap">
+    <nav class="top">
+      <a href="/" class="wordmark">mudit000</a>
+      <ul class="cat-tabs">
+        {allCategories().map((cat) => (
+          <li><a href={`/${cat.slug}/`} style={`color: ${cat.accent}`}>{cat.label}</a></li>
+        ))}
+      </ul>
+    </nav>
+
+    <header class="hero">
+      <div>
+        <h1>Systems, drawn out.</h1>
+        <p>
+          Kubernetes, cloud, and AI concepts explained end-to-end —
+          one animated sketch at a time, not a wall of docs.
+        </p>
+      </div>
+      <div class="hero-demo">
+        <SketchFlow
+          client:load
+          stages={heroStages}
+          direction="vertical"
+          speed={1.1}
+          accent={getCategory('k8s').accent}
+        />
+      </div>
+    </header>
+
+    <hr class="rule" />
+
+    <section class="posts">
+      <h2>Latest posts</h2>
+      <div class="post-grid">
+        {sorted.map((post) => {
+          const cat = getCategory(post.data.category);
+          return (
+            <a class="post-card" href={postUrl(post)}>
+              <svg class="frame" preserveAspectRatio="none">
+                <rect x="2" y="2" width="calc(100% - 4px)" height="calc(100% - 4px)"
+                  fill="none" stroke={cat.accent} stroke-width="2" filter="url(#sketchy)" />
+              </svg>
+              <span class="badge" style={`background:${cat.accent}20; color:${cat.accent}`}>{cat.label}</span>
+              <h3>{post.data.title}</h3>
+              <p>{post.data.description}</p>
+              <span class="meta">{dateFmt.format(post.data.date)}</span>
+              {post.data.difficulty && <span class="meta difficulty">{post.data.difficulty}</span>}
+            </a>
+          );
+        })}
+
+        {allCategories()
+          .filter((cat) => !sorted.some((p) => p.data.category === cat.slug))
+          .map((cat) => (
+            <div class="post-card empty">
+              <svg class="frame" preserveAspectRatio="none">
+                <rect x="2" y="2" width="calc(100% - 4px)" height="calc(100% - 4px)"
+                  fill="none" stroke={cat.accent} stroke-width="2" stroke-dasharray="6 5" filter="url(#sketchy)" opacity="0.6" />
+              </svg>
+              <span class="badge" style={`background:${cat.accent}20; color:${cat.accent}`}>{cat.label}</span>
+              <p>First {cat.label} post is on its way.</p>
+            </div>
+          ))}
+      </div>
+    </section>
+  </div>
+</body>
+</html>

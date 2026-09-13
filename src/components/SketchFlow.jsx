@@ -19,16 +19,14 @@
  *   const stages = [
  *     { id: 'kubectl', label: 'kubectl apply', detail: 'You submit a pod spec as YAML/JSON.' },
  *     { id: 'api', label: 'API server', detail: 'Validates the spec and writes it to etcd.' },
- *     { id: 'etcd', label: 'etcd', detail: 'Stores the desired cluster state.' },
- *     { id: 'sched', label: 'Scheduler', detail: 'Picks a node using filtering + scoring.' },
- *     { id: 'kubelet', label: 'Kubelet', detail: 'Agent on the chosen node picks up the assignment.' },
- *     { id: 'runtime', label: 'Container runtime', detail: 'Pulls the image and starts the container.' },
- *     { id: 'running', label: 'Pod running', detail: 'Kubelet reports status back to the API server.' },
+ *     ...
  *   ];
  *
+ *   // Long flows: use 'wrap' so it doesn't force a tall scroll.
  *   <SketchFlow
  *     stages={stages}
- *     direction="vertical"      // 'vertical' | 'horizontal'
+ *     direction="wrap"      // 'vertical' | 'horizontal' | 'wrap'
+ *     columns={4}            // only used by 'wrap' — stages per row
  *     autoPlay
  *     onStageClick={(stage) => console.log(stage.id)}
  *   />
@@ -38,11 +36,23 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import rough from 'roughjs';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const BOX_W = 220;
-const BOX_H = 64;
-const GAP = 56;
+const BOX_W = 200;
+const BOX_H = 60;
+const GAP = 44;
 
-function layoutStages(stages, direction) {
+function layoutStages(stages, direction, columns) {
+  if (direction === 'wrap') {
+    const cols = Math.max(2, columns || 3);
+    return stages.map((stage, i) => {
+      const row = Math.floor(i / cols);
+      const colInRow = i % cols;
+      // Snake: even rows go left-to-right, odd rows go right-to-left,
+      // so consecutive stages stay adjacent (and aligned in x at the
+      // row transition), keeping the connector path continuous.
+      const col = row % 2 === 0 ? colInRow : cols - 1 - colInRow;
+      return { ...stage, x: col * (BOX_W + GAP), y: row * (BOX_H + GAP), row, col };
+    });
+  }
   return stages.map((stage, i) => {
     const x = direction === 'horizontal' ? i * (BOX_W + GAP) : 0;
     const y = direction === 'vertical' ? i * (BOX_H + GAP) : 0;
@@ -59,13 +69,18 @@ function SketchBox({ x, y, w, h, seed, active, color }) {
     const rc = rough.svg(ref.current);
     const node = rc.rectangle(2, 2, w - 4, h - 4, {
       seed,
-      roughness: active ? 2.4 : 1.6,
-      stroke: color,
+      roughness: active ? 2.2 : 1.5,
+      stroke: active ? color : '#444',
       strokeWidth: active ? 3 : 2,
       fill: active ? color : 'transparent',
       fillStyle: 'hachure',
-      fillWeight: 1.5,
-      hachureGap: 6,
+      fillWeight: 0.8,
+      hachureGap: 7,
+      // Low fill opacity keeps the sketch background visible and keeps
+      // text (always dark) readable — a solid fill + white text was the
+      // earlier bug where an accent-colored token disappeared on top of
+      // an identically accent-colored active box.
+      fillOpacity: active ? 0.12 : 1,
     });
     ref.current.appendChild(node);
   }, [w, h, seed, active, color]);
@@ -80,17 +95,34 @@ function SketchBox({ x, y, w, h, seed, active, color }) {
   );
 }
 
-function SketchConnector({ from, to, seed, direction }) {
+function SketchConnector({ from, to, seed }) {
   const ref = useRef(null);
 
   useEffect(() => {
     if (!ref.current) return;
     ref.current.innerHTML = '';
     const rc = rough.svg(ref.current);
-    const x1 = direction === 'horizontal' ? from.x + BOX_W : from.x + BOX_W / 2;
-    const y1 = direction === 'horizontal' ? from.y + BOX_H / 2 : from.y + BOX_H;
-    const x2 = direction === 'horizontal' ? to.x : to.x + BOX_W / 2;
-    const y2 = direction === 'horizontal' ? to.y + BOX_H / 2 : to.y;
+
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    let x1, y1, x2, y2;
+
+    if (dx !== 0) {
+      // same row — connect horizontally, whichever side faces the target
+      const goingRight = dx > 0;
+      x1 = from.x + (goingRight ? BOX_W : 0);
+      y1 = from.y + BOX_H / 2;
+      x2 = to.x + (goingRight ? 0 : BOX_W);
+      y2 = to.y + BOX_H / 2;
+    } else {
+      // same column — connect vertically
+      const goingDown = dy > 0;
+      x1 = from.x + BOX_W / 2;
+      y1 = from.y + (goingDown ? BOX_H : 0);
+      x2 = to.x + BOX_W / 2;
+      y2 = to.y + (goingDown ? 0 : BOX_H);
+    }
+
     const node = rc.line(x1, y1, x2, y2, {
       seed,
       roughness: 1.8,
@@ -98,7 +130,7 @@ function SketchConnector({ from, to, seed, direction }) {
       stroke: 'var(--sketch-line, #444)',
     });
     ref.current.appendChild(node);
-  }, [from, to, seed, direction]);
+  }, [from, to, seed]);
 
   return (
     <svg
@@ -111,13 +143,14 @@ function SketchConnector({ from, to, seed, direction }) {
 export default function SketchFlow({
   stages,
   direction = 'vertical',
+  columns = 3,
   autoPlay = true,
   loop = true,
   speed = 1.4, // seconds per hop
   onStageClick,
   accent = '#D85A30',
 }) {
-  const laidOut = layoutStages(stages, direction);
+  const laidOut = layoutStages(stages, direction, columns);
   const [activeIndex, setActiveIndex] = useState(0);
   const [openDetail, setOpenDetail] = useState(null);
 
@@ -141,8 +174,13 @@ export default function SketchFlow({
     [onStageClick]
   );
 
-  const containerW = direction === 'horizontal' ? laidOut.length * (BOX_W + GAP) : BOX_W;
-  const containerH = direction === 'vertical' ? laidOut.length * (BOX_H + GAP) : BOX_H;
+  const maxCol = Math.max(...laidOut.map((s) => s.col ?? (direction === 'horizontal' ? laidOut.indexOf(s) : 0)));
+  const maxRow = Math.max(...laidOut.map((s) => s.row ?? (direction === 'vertical' ? laidOut.indexOf(s) : 0)));
+
+  const containerW =
+    direction === 'vertical' ? BOX_W : (maxCol + 1) * (BOX_W + GAP) - GAP;
+  const containerH =
+    direction === 'horizontal' ? BOX_H : (maxRow + 1) * (BOX_H + GAP) - GAP;
 
   const active = laidOut[activeIndex];
 
@@ -157,13 +195,7 @@ export default function SketchFlow({
         }}
       >
         {laidOut.slice(1).map((stage, i) => (
-          <SketchConnector
-            key={`edge-${stage.id}`}
-            from={laidOut[i]}
-            to={stage}
-            seed={i + 1}
-            direction={direction}
-          />
+          <SketchConnector key={`edge-${stage.id}`} from={laidOut[i]} to={stage} seed={i + 1} />
         ))}
 
         {laidOut.map((stage, i) => (
@@ -182,7 +214,7 @@ export default function SketchFlow({
               h={BOX_H}
               seed={i + 100}
               active={i === activeIndex}
-              color={i === activeIndex ? accent : '#444'}
+              color={accent}
             />
             <span
               style={{
@@ -196,9 +228,9 @@ export default function SketchFlow({
                 justifyContent: 'center',
                 textAlign: 'center',
                 padding: '0 10px',
-                fontSize: 17,
-                fontWeight: 700,
-                color: i === activeIndex ? '#fff' : '#222',
+                fontSize: 16,
+                fontWeight: i === activeIndex ? 700 : 500,
+                color: '#222',
                 pointerEvents: 'none',
               }}
             >
@@ -207,20 +239,20 @@ export default function SketchFlow({
           </div>
         ))}
 
-        {/* animated token hopping between stage centers */}
+        {/* Small corner marker on the active box instead of a separate
+            traveling dot — avoids same-color-on-same-color contrast
+            issues regardless of layout direction. */}
         <motion.div
-          animate={{
-            left: active.x + BOX_W / 2 - 9,
-            top: active.y + (direction === 'vertical' ? -14 : BOX_H / 2 - 9),
-          }}
+          animate={{ left: active.x + BOX_W - 16, top: active.y - 8 }}
           transition={{ type: 'spring', stiffness: 260, damping: 20 }}
           style={{
             position: 'absolute',
-            width: 18,
-            height: 18,
+            width: 16,
+            height: 16,
             borderRadius: '50%',
             background: accent,
-            border: '2px solid #222',
+            border: '2px solid #fff',
+            boxShadow: '0 0 0 2px #222',
           }}
         />
       </div>

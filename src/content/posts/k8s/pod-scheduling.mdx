@@ -26,7 +26,7 @@ When you run `kubectl apply`, a lot happens before your container is actually
 running somewhere. Here's the whole journey, stage by stage — click any box
 below for a one-line explanation of what happens there.
 
-<SketchFlow client:visible stages={stages} accent={cat.accent} />
+<SketchFlow client:visible stages={stages} direction="wrap" columns={4} accent={cat.accent} />
 
 ## Why the scheduler doesn't just pick the first free node
 

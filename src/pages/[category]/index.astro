@@ -1,0 +1,144 @@
+---
+// src/pages/[category]/index.astro
+import { getCollection } from 'astro:content';
+import { allCategories, getCategory } from '../../config/categories';
+
+export async function getStaticPaths() {
+  return allCategories().map((cat) => ({
+    params: { category: cat.slug },
+  }));
+}
+
+const { category } = Astro.params;
+const cat = getCategory(category);
+const allPosts = await getCollection('posts');
+const posts = allPosts
+  .filter((p) => p.data.category === category)
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+const dateFmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+---
+
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{cat.label} — mudit000</title>
+  <meta name="description" content={cat.description} />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #F4F5F2;
+      --grid-line: #E4E6E0;
+      --ink: #23262B;
+      --ink-muted: #5B6169;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / 100% 40px,
+        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / 40px 100%,
+        var(--paper);
+      color: var(--ink);
+      font-family: 'Inter', sans-serif;
+    }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+    nav.top { padding: 28px 0 8px; }
+    .wordmark {
+      font-family: 'Kalam', cursive;
+      font-weight: 700;
+      font-size: 22px;
+      color: var(--ink);
+      text-decoration: none;
+    }
+    .back {
+      display: inline-block;
+      margin-top: 24px;
+      font-size: 14px;
+      color: var(--ink-muted);
+      text-decoration: none;
+    }
+    header.cat-hero { padding: 12px 0 44px; }
+    header.cat-hero h1 {
+      font-family: 'Kalam', cursive;
+      font-weight: 700;
+      font-size: 42px;
+      margin: 0 0 12px;
+    }
+    header.cat-hero p {
+      font-size: 17px;
+      color: var(--ink-muted);
+      max-width: 52ch;
+      margin: 0;
+    }
+    .post-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 24px;
+      margin-bottom: 80px;
+    }
+    .post-card {
+      position: relative;
+      padding: 22px 20px;
+      min-height: 150px;
+      display: flex;
+      flex-direction: column;
+      text-decoration: none;
+      color: inherit;
+    }
+    .post-card svg.frame { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .post-card h3 { font-size: 18px; font-weight: 600; margin: 0 0 8px; }
+    .post-card p { font-size: 14px; color: var(--ink-muted); line-height: 1.5; margin: 0 0 12px; flex-grow: 1; }
+    .post-card .meta { font-size: 12px; color: var(--ink-muted); }
+    .empty-state {
+      padding: 40px 0;
+      color: var(--ink-muted);
+      font-size: 15px;
+    }
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute">
+    <defs>
+      <filter id="sketchy" x="-10%" y="-10%" width="120%" height="120%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="7" result="noise" />
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.5" />
+      </filter>
+    </defs>
+  </svg>
+
+  <div class="wrap">
+    <nav class="top">
+      <a href="/" class="wordmark">mudit000</a>
+    </nav>
+
+    <header class="cat-hero">
+      <h1 style={`color: ${cat.accent}`}>{cat.label}</h1>
+      <p>{cat.description}</p>
+    </header>
+
+    {posts.length > 0 ? (
+      <div class="post-grid">
+        {posts.map((post) => (
+          <a class="post-card" href={`/${post.id}`}>
+            <svg class="frame" preserveAspectRatio="none">
+              <rect x="2" y="2" width="calc(100% - 4px)" height="calc(100% - 4px)"
+                fill="none" stroke={cat.accent} stroke-width="2" filter="url(#sketchy)" />
+            </svg>
+            <h3>{post.data.title}</h3>
+            <p>{post.data.description}</p>
+            <span class="meta">{dateFmt.format(post.data.date)}</span>
+          </a>
+        ))}
+      </div>
+    ) : (
+      <p class="empty-state">No {cat.label} posts yet — check back soon.</p>
+    )}
+
+    <a href="/" class="back">&larr; Back to all posts</a>
+  </div>
+</body>
+</html>
