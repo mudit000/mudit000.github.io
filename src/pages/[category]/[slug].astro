@@ -1,0 +1,38 @@
+---
+// src/pages/[category]/[slug].astro
+import { getCollection, render } from 'astro:content';
+import { getCategory } from '../../config/categories';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('posts');
+  return posts.map((post) => {
+    const [category, ...slugParts] = post.id.split('/');
+    return {
+      params: { category, slug: slugParts.join('/') },
+      props: { post },
+    };
+  });
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+const cat = getCategory(post.data.category);
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{post.data.title}</title>
+    <meta name="description" content={post.data.description} />
+  </head>
+  <body>
+    <main style="max-width: 720px; margin: 0 auto; padding: 2rem 1rem; font-family: sans-serif;">
+      <a href={`/${cat.slug}/`} style={`color: ${cat.accent}; text-decoration: none; font-size: 14px;`}>
+        &larr; {cat.label}
+      </a>
+      <h1>{post.data.title}</h1>
+      <p style="color: #666;">{post.data.description}</p>
+      <Content />
+    </main>
+  </body>
+</html>

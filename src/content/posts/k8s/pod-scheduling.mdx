@@ -1,0 +1,39 @@
+---
+title: "How a pod gets scheduled"
+description: "End-to-end walk from kubectl apply to a running container"
+category: k8s
+tags: [scheduling, control-plane]
+date: 2026-09-13
+difficulty: intermediate
+---
+
+import SketchFlow from '../../../components/SketchFlow.jsx';
+import { getCategory } from '../../../config/categories';
+
+export const stages = [
+  { id: 'kubectl', label: 'kubectl apply', detail: 'You submit a pod spec as YAML/JSON.' },
+  { id: 'api', label: 'API server', detail: 'Validates the spec and writes it to etcd.' },
+  { id: 'etcd', label: 'etcd', detail: 'Stores the desired cluster state.' },
+  { id: 'sched', label: 'Scheduler', detail: 'Picks a node using filtering + scoring.' },
+  { id: 'kubelet', label: 'Kubelet', detail: 'Agent on the chosen node picks up the assignment.' },
+  { id: 'runtime', label: 'Container runtime', detail: 'Pulls the image and starts the container.' },
+  { id: 'running', label: 'Pod running', detail: 'Kubelet reports status back to the API server.' },
+];
+
+export const cat = getCategory('k8s');
+
+When you run `kubectl apply`, a lot happens before your container is actually
+running somewhere. Here's the whole journey, stage by stage — click any box
+below for a one-line explanation of what happens there.
+
+<SketchFlow client:visible stages={stages} accent={cat.accent} />
+
+## Why the scheduler doesn't just pick the first free node
+
+The scheduler runs two phases for every pod: **filtering** (which nodes
+even *could* run this pod, based on resource requests, taints, and
+affinity rules) and **scoring** (of the nodes that pass, which one is
+the *best* fit, based on things like spreading pods evenly or bin-packing
+tightly). Only after both phases does it write a binding back to the API
+server, which is what actually tells the kubelet on that node to start
+pulling the image.
